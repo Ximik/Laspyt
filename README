@@ -1,3 +1,15 @@
-1. Move laspyt.py to any dir of your $PATH (e.g. /usr/bin) and make it executable
+== About
+A simple scrobbler written on python, that submit tracks from scrobber.log (this type of file is used by rockbox firmware and few others).
+
+== Features
+* Don't need any extra libs or soft
+* Simply configured conffile for each user (can be configured by script)
+* Save password in encrypted form
+* Work with timezones
+* Show submission status for each track
+* Optionally clear log-file after submission
+
+== Usage
+1. Download the script and untar. Move laspyt.py to any dir of your $PATH (I use /usr/bin) and make it executable
 2. See available options description "laspyt.py --help". Set default options by "laspyt.py -s [options]"
 3. Now simply use "laspyt.py"
