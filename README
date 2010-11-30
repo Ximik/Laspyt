@@ -10,6 +10,6 @@ A simple scrobbler written on python, that submit tracks from scrobber.log (this
 * Optionally clear log-file after submission
 
 == Usage
-1. Download the script and untar. Move laspyt.py to any dir of your $PATH (I use /usr/bin) and make it executable
+1. Move laspyt.py to any dir of your $PATH (e.g. /usr/bin) and make it executable
 2. See available options description "laspyt.py --help". Set default options by "laspyt.py -s [options]"
 3. Now simply use "laspyt.py"
