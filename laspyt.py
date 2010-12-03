@@ -9,12 +9,17 @@ from hashlib import md5
 from http.client import HTTPConnection
 from urllib.parse import urlencode
 from urllib.parse import urlparse
+from xml.etree import ElementTree
 
 #Base constants----------------------------------------
 APP_NAME = 'pyt'
 APP_VERSION = '1.1'
+API_KEY = 'f93b732314fb490801795e8f4062c205'
+API_SECRET = '7f3f480915d7fcb1d11e42bc2ea71da4'
 AUDIOSCROBBLER_LINE = "#AUDIOSCROBBLER/1.1\n"
 CONFIG = expanduser('~/.laspyt.cfg')
+OK_MSG = '\033[92m[OK] \033[0m'
+FAIL_MSG = '\033[91m[FAIL] \033[0m'
 #------------------------------------------------------
 
 #Read configuration------------------------------------
@@ -81,47 +86,69 @@ if (TZ_LINE == "#TZ/UTC\n"):
 CLIENT_LINE = fl.readline()
 #------------------------------------------------------
 
+def query(params):
+  params['api_key'] = API_KEY
+  api_sig = ""
+  q = {}
+  for key in sorted(params):
+    api_sig += key + params[key]
+    q[key] = params[key]
+  api_sig += API_SECRET
+  api_sig = md5(api_sig.encode('utf-8')).hexdigest()
+  q['api_sig'] = api_sig
+  q = urlencode(q)
+  return q
+
 #Create session----------------------------------------
-timestamp = int(time())
-token = md5((opts.password + str(timestamp)).encode('utf-8')).hexdigest()
-conn = HTTPConnection("post.audioscrobbler.com")
-conn.request("GET", "/?hs=true&p=1.2.1&c=%s&v=%s&u=%s&t=%i&a=%s" % (APP_NAME, APP_VERSION, opts.user, timestamp, token))
+token = md5((opts.user + opts.password).encode('utf-8')).hexdigest()
+conn = HTTPConnection("ws.audioscrobbler.com")
+conn.request("GET", "/2.0/?%s" % query({'authToken': token, 'method': 'auth.getMobileSession', 'username': opts.user}))
 response = conn.getresponse()
-conn.close();
-if (response.status != 200):
+conn.close()
+if (response.status != 200 and response.status != 403):
   print("Can't connect to last.fm")
   fl.close()
   quit()
-data = str(response.read(), 'utf-8').split("\n") 
-data = [elem for elem in data if len(elem) > 0]
-if (data[0] != "OK"):
-  print("Last.fm error: %s" % data[0])
+data = ElementTree.fromstring(response.read())
+if (data.attrib['status'] != "ok"):
+  print("Last.fm error: %s" % data.find("error").text)
   fl.close()
   quit()
-url = urlparse(data[3])
-SUBMISSION_URL = url.netloc
-SUBMISSION_PATH = url.path
-SESSION_ID = data[1]
-#------------------------------------------------------
+SESSION_KEY = data.find("session").find("key").text
+##------------------------------------------------------
 
 #Scrobbling--------------------------------------------
 timedelay = -3600*opts.timezone
 oks = 0
 fails = 0
-conn = HTTPConnection(SUBMISSION_URL)
+conn = HTTPConnection("ws.audioscrobbler.com")
 print("Scrobbling started")
 for line in fl:
-  data = line.split("\t")
-  if (data[5] == "L"):
-    params = urlencode({'s': SESSION_ID, 'a[0]': data[0], 't[0]': data[2], 'i[0]': int(data[6])+timedelay, 'o[0]': 'P', 'r[0]': '', 'l[0]': data[4], 'b[0]': data[1], 'n[0]': data[3], 'm[0]': data[7]})
-    conn.request("POST", SUBMISSION_PATH, params, {"Content-type": "application/x-www-form-urlencoded"})
-    response = conn.getresponse().read()[:-1]
-    if (response == b"OK"):
-      oks+=1
+  track = line.split("\t")
+  if (track[5] == "L"):
+    #({'s': SESSION_ID, 'a[0]': data[0], 't[0]': data[2], 'i[0]': int(data[6])+timedelay, 'o[0]': 'P', 'r[0]': '', 'l[0]': data[4], 'b[0]': data[1], 'n[0]': data[3], 'm[0]': data[7]})
+    body = query({'track[0]': track[2], 'timestamp[0]': str(int(track[6])+timedelay), 'artist[0]': track[0], 'album[0]': track[1], 'trackNumber[0]': track[3], 'duration[0]': track[4], 'sk': SESSION_KEY, 'method': 'track.scrobble'})
+    conn.request("POST", "/2.0/", body, {"Content-type": "application/x-www-form-urlencoded"})
+    response =  conn.getresponse()
+    conn.close()
+    error = False
+    if (response.status != 200):
+      error = "% error" % response.status
     else:
+      data = ElementTree.fromstring(response.read())
+      if (data.attrib['status'] != "ok"):
+        error = data.find("error").text
+      else:
+        data = data.find("scrobbles").find("scrobble").find("ignoredMessage")
+        if (data.attrib['code'] != 0):
+          error = data.text
+    track = "%s - %s" % (track[0], track[2])
+    if (error):
       fails+=1
-    print("%s - %s [%s]" % (data[0], data[2], str(response, 'utf-8')))
-conn.close()
+      print(FAIL_MSG+"%s - %s" % (track, error))
+    else:
+      oks+=1
+      print(OK_MSG+"%s" % (track))
 fl.close()
 print("%i tracks submitted.\n%i failed submissions." % (oks, fails))
 #------------------------------------------------------
