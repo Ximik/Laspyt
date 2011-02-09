@@ -62,7 +62,7 @@ def saveConfig():
     CONFIG.set('DEFAULT', 'user', OPTIONS.user)
     CONFIG.set('DEFAULT', 'password', OPTIONS.password)
     CONFIG.set('DEFAULT', 'timezone', OPTIONS.timezone)
-    with open(CONFIG, 'w') as configfile:
+    with open(CONFIG_FILE, 'w') as configfile:
       CONFIG.write(configfile)
       print("Configuration file was updated")
       quit()
