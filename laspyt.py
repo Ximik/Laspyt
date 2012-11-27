@@ -30,6 +30,7 @@ def loadOptions():
   p.add_option('--clear', '-c', help='clear scrobbler.log after scrobbling without asking', dest="clearing", action="store_const", const="y")
   p.add_option('--leave', '-l', help='don\'t clear scrobbler.log after scrobbling without asking', dest="clearing", action="store_const", const="n")
   p.add_option('--save', '-s', help='save current options as default, but doesn\'t make scrobbling', action="store_true", default=False)
+  p.add_option('--noop', '-n', help='simulate, but do not actually scrobble or clear', action='store_true', default=False)
   OPTIONS, args = p.parse_args()
   if OPTIONS.password:
     OPTIONS.password = md5(OPTIONS.password.encode('utf-8')).hexdigest()
@@ -62,6 +63,9 @@ def saveConfig():
     CONFIG.set('DEFAULT', 'user', OPTIONS.user)
     CONFIG.set('DEFAULT', 'password', OPTIONS.password)
     CONFIG.set('DEFAULT', 'timezone', OPTIONS.timezone)
+    if OPTIONS.noop:
+      print("Configuration file was updated -- not!")
+      quit()
     with open(CONFIG_FILE, 'w') as configfile:
       CONFIG.write(configfile)
       print("Configuration file was updated")
@@ -105,6 +109,9 @@ def readLog():
 
 def clearLog():
   global FILE
+  if OPTIONS.noop:
+    print("File %s cleared -- not!" % OPTIONS.file)
+    return
   try:
     FILE = open(OPTIONS.file, "w")
     FILE.write(AUDIOSCROBBLER_LINE)
@@ -147,6 +154,8 @@ def createSession():
   SESSION_KEY = data.find("session").find("key").text
   
 def submitTrack(track):
+  if OPTIONS.noop:
+    return False
   error = False
   if (track[5] == "L"):
     conn = HTTPConnection("ws.audioscrobbler.com")
