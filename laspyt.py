@@ -55,6 +55,12 @@ def loadConfig():
   if not CONFIG.has_option('DEFAULT', 'timezone'):
     CONFIG.set('DEFAULT', 'timezone', '0')
 
+def decodestr(str):
+  try:
+    return str.decode("utf-8")
+  except UnicodeDecodeError:
+    return str.decode("ISO-8859-1")
+
 def saveConfig():
   global CONFIG
   if OPTIONS.save:
@@ -70,18 +76,18 @@ def saveConfig():
 def openLog():
   global FILE, TZ_LINE, CLIENT_LINE
   try:
-    FILE = open(OPTIONS.file, "r")
+    FILE = open(OPTIONS.file, "rb")
   except IOError:
     print("Can't open file %s" % OPTIONS.file)
     quit()
-  if (FILE.readline() != AUDIOSCROBBLER_LINE):
+  if (decodestr(FILE.readline()) != AUDIOSCROBBLER_LINE):
     print("Unknown scrobbler.log format")
     FILE.close()
     quit()
-  TZ_LINE = FILE.readline()
+  TZ_LINE = decodestr(FILE.readline())
   if (TZ_LINE == "#TZ/UTC\n"):
     OPTIONS.timezone = 0
-  CLIENT_LINE = FILE.readline()
+  CLIENT_LINE = decodestr(FILE.readline())
   
 def readLog():
   global FILE, TIMEDELAY
@@ -91,6 +97,7 @@ def readLog():
   conn = HTTPConnection("ws.audioscrobbler.com")
   print("Scrobbling started")
   for line in FILE:
+    line = decodestr(line)
     track = line.split("\t")
     error = submitTrack(track)
     track = "%s - %s" % (track[0], track[2])
