@@ -8,6 +8,7 @@ from xml.etree import ElementTree
 from os.path import expanduser
 from hashlib import md5
 from urllib.parse import urlencode
+import sys
 
 API_KEY = 'f93b732314fb490801795e8f4062c205'
 API_SECRET = '7f3f480915d7fcb1d11e42bc2ea71da4'
@@ -19,6 +20,8 @@ OPTIONS = None
 CONFIG = None
 FILE = None
 TIMEDELAY = 0
+
+quit = lambda: sys.exit(1)
 
 def loadOptions():
   global OPTIONS
