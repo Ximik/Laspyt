@@ -5,20 +5,26 @@ from optparse import OptionParser
 from configparser import RawConfigParser
 from http.client import HTTPConnection
 from xml.etree import ElementTree
-from os.path import expanduser
+from os import path, mkdir
+from shutil import move
 from hashlib import md5
 from urllib.parse import urlencode
+import sys
+from time import gmtime, strftime
 
 API_KEY = 'f93b732314fb490801795e8f4062c205'
 API_SECRET = '7f3f480915d7fcb1d11e42bc2ea71da4'
 AUDIOSCROBBLER_LINE = "#AUDIOSCROBBLER/1.1\n"
-CONFIG_FILE = expanduser('~/.laspyt.cfg')
+CONFIG_FILE = path.expanduser('~/.laspyt.cfg')
+BACKUPS_DIRECTORY = path.expanduser('~/backups/')
 OK_MSG = '\033[92m[OK] \033[0m'
 FAIL_MSG = '\033[91m[FAIL] \033[0m'
 OPTIONS = None
 CONFIG = None
 FILE = None
 TIMEDELAY = 0
+
+quit = lambda: sys.exit(1)
 
 def loadOptions():
   global OPTIONS
@@ -28,6 +34,7 @@ def loadOptions():
   p.add_option('--password', '-p', help='last.fm password', default='')
   p.add_option('--timezone', '-t', help='timezone: 0 (for UTC+0) +5 (for UTC+5), -3 (for UTC-3)', default=CONFIG.get('DEFAULT', 'timezone'))
   p.add_option('--clear', '-c', help='clear scrobbler.log after scrobbling without asking', dest="clearing", action="store_const", const="y")
+  p.add_option('--backup', '-b', help='backup scrobbler.log with current date/time before clearing', dest="backup", action="store_const", const="y")
   p.add_option('--leave', '-l', help='don\'t clear scrobbler.log after scrobbling without asking', dest="clearing", action="store_const", const="n")
   p.add_option('--save', '-s', help='save current options as default, but doesn\'t make scrobbling', action="store_true", default=False)
   p.add_option('--noop', '-n', help='simulate, but do not actually scrobble or clear', action='store_true', default=False)
@@ -120,6 +127,15 @@ def clearLog():
     print("File %s cleared -- not!" % OPTIONS.file)
     return
   try:
+    if OPTIONS.backup:
+      current_datetime = strftime("%Y-%m-%d_%H:%M:%S", gmtime())
+      filename = "%s_%s" % (current_datetime, path.basename(OPTIONS.file))
+      if not path.exists(BACKUPS_DIRECTORY):
+        mkdir(BACKUPS_DIRECTORY)
+      if path.isdir(BACKUPS_DIRECTORY):
+        move(OPTIONS.file, path.join(BACKUPS_DIRECTORY, filename))
+      else:
+        print("Didn't backup because %s is not a directory" % BACKUPS_DIRECTORY)
     FILE = open(OPTIONS.file, "w")
     FILE.write(AUDIOSCROBBLER_LINE)
     FILE.write(TZ_LINE)
