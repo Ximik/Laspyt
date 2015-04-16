@@ -163,39 +163,43 @@ def createSession():
   token = md5((OPTIONS.user + OPTIONS.password).encode('utf-8')).hexdigest()
   conn = HTTPConnection("ws.audioscrobbler.com")
   conn.request("GET", "/2.0/?%s" % makeQueryBody({'authToken': token, 'method': 'auth.getMobileSession', 'username': OPTIONS.user}))
-  response = conn.getresponse()
-  conn.close()
-  if (response.status != 200 and response.status != 403):
-    print("Can't connect to last.fm")
-    FILE.close()
-    quit()
-  data = ElementTree.fromstring(response.read())
-  if (data.attrib['status'] != "ok"):
-    print("Last.fm error: %s" % data.find("error").text)
-    FILE.close()
-    quit()
-  SESSION_KEY = data.find("session").find("key").text
-  
+  try:
+    response = conn.getresponse()
+    if (response.status != 200 and response.status != 403):
+      print("Can't connect to last.fm")
+      FILE.close()
+      quit()
+    data = ElementTree.fromstring(response.read())
+    if (data.attrib['status'] != "ok"):
+      print("Last.fm error: %s" % data.find("error").text)
+      FILE.close()
+      quit()
+    SESSION_KEY = data.find("session").find("key").text
+  finally:
+    conn.close()
+
 def submitTrack(track):
   if OPTIONS.noop:
     return False
   error = False
   if (track[5] == "L"):
     conn = HTTPConnection("ws.audioscrobbler.com")
-    body = makeQueryBody({'track[0]': track[2], 'timestamp[0]': str(int(track[6])+TIMEDELAY), 'artist[0]': track[0], 'album[0]': track[1], 'trackNumber[0]': track[3], 'duration[0]': track[4], 'sk': SESSION_KEY, 'method': 'track.scrobble'})
-    conn.request("POST", "/2.0/", body, {"Content-type": "application/x-www-form-urlencoded"})
-    response =  conn.getresponse()
-    conn.close()
-    if (response.status != 200):
-      error = "%s error" % response.status
-    else:
-      data = ElementTree.fromstring(response.read())
-      if (data.attrib['status'] != "ok"):
-        error = data.find("error").text
+    try:
+      body = makeQueryBody({'track[0]': track[2], 'timestamp[0]': str(int(track[6])+TIMEDELAY), 'artist[0]': track[0], 'album[0]': track[1], 'trackNumber[0]': track[3], 'duration[0]': track[4], 'sk': SESSION_KEY, 'method': 'track.scrobble'})
+      conn.request("POST", "/2.0/", body, {"Content-type": "application/x-www-form-urlencoded"})
+      response =  conn.getresponse()
+      if (response.status != 200):
+        error = "%s error" % response.status
       else:
-        data = data.find("scrobbles").find("scrobble").find("ignoredMessage")
-        if (data.attrib['code'] != 0):
-          error = data.text
+        data = ElementTree.fromstring(response.read())
+        if (data.attrib['status'] != "ok"):
+          error = data.find("error").text
+        else:
+          data = data.find("scrobbles").find("scrobble").find("ignoredMessage")
+          if (data.attrib['code'] != 0):
+            error = data.text
+    finally:
+      conn.close()
   return error
       
 loadConfig()
