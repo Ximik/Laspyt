@@ -105,7 +105,6 @@ def readLog():
   TIMEDELAY = -3600*OPTIONS.timezone
   oks = 0
   fails = 0
-  conn = HTTPConnection("ws.audioscrobbler.com")
   print("Scrobbling started")
   for line in FILE:
     line = decodestr(line)
